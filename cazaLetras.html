@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CazaLetras</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #1a1a2e; /* Azul oscuro espacial */
+            color: #e0e0e0; /* Texto claro */
+            margin: 0;
+            overflow: hidden; /* Evitar scrollbars si el canvas es grande */
+        }
+        .game-container {
+            background-color: #162447; /* Azul más oscuro para el contenedor */
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            background-color: #0f3460; /* Fondo del canvas azul profundo */
+            border-radius: 8px;
+            display: block; /* Evita espacio extra debajo del canvas */
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .controls {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 800px; /* Coincide con el ancho del canvas */
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-family: 'Press Start 2P', cursive; /* Fuente pixelada */
+        }
+        .controls div {
+            background-color: #e94560; /* Rojo-rosado para los displays */
+            color: #f0f0f0;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        button {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #1f4068; /* Azul para botones */
+            color: #e0e0e0;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            margin-top: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        button:hover {
+            background-color: #295588; /* Azul más claro al pasar el mouse */
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        .message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(25, 25, 46, 0.9); /* Fondo semitransparente oscuro */
+            color: #e0e0e0;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 100;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.5em;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5); /* Sombra colorida */
+        }
+        .message-box h2 {
+            font-size: 1.8em;
+            color: #e94560; /* Rojo-rosado para el título del mensaje */
+            margin-bottom: 15px;
+        }
+        .message-box p {
+            margin-bottom: 25px;
+            font-size: 1em;
+        }
+        .hidden {
+            display: none;
+        }
+        .letter-package {
+            font-family: 'Press Start 2P', cursive; /* Fuente pixelada para las letras */
+            font-size: 24px; /* Tamaño de la letra dentro del paquete */
+            color: #f0f0f0; /* Color de la letra */
+            text-align: center;
+            line-height: 40px; /* Centrar verticalmente la letra en el paquete */
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="text-4xl font-bold mb-6 text-center" style="font-family: 'Press Start 2P', cursive; color: #e94560;">CazaLetras</h1>
+        <div class="controls">
+            <div id="score">Puntos: 0</div>
+            <div id="level">Nivel: 1</div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <button id="startButton" class="mt-4">Iniciar Juego</button>
+    </div>
+
+    <div id="gameOverBox" class="message-box hidden">
+        <h2>¡Juego Terminado!</h2>
+        <p id="finalScore">Puntuación Final: 0</p>
+        <button id="restartButton">Reiniciar Juego</button>
+    </div>
+
+    <div id="instructionsBox" class="message-box">
+        <h2>¡Bienvenida a CazaLetras!</h2>
+        <p>Presiona la tecla correcta para destruir las letras que caen. ¡Sube de nivel y mejora tu velocidad!</p>
+        <button id="startGameFromInstructionsButton">¡Entendido!</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const levelDisplay = document.getElementById('level');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const gameOverBox = document.getElementById('gameOverBox');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        const instructionsBox = document.getElementById('instructionsBox');
+        const startGameFromInstructionsButton = document.getElementById('startGameFromInstructionsButton');
+
+        // Configuraciones del juego
+        const canvasWidth = 800;
+        const canvasHeight = 600;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        const letterChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const letterPackageWidth = 40;
+        const letterPackageHeight = 40;
+        const cannonWidth = 80;
+        const cannonHeight = 50;
+        const cannonBaseHeight = 20; // Parte rectangular de la base del cañón
+        const cannonBarrelWidth = 20; // Ancho del cañón
+        const cannonBarrelHeight = 30; // Alto del cañón
+
+        let score = 0;
+        let level = 1;
+        let letters = [];
+        let baseLetterSpeed = 1; // Velocidad inicial de las letras
+        let letterSpeed = baseLetterSpeed;
+        let baseSpawnInterval = 2000; // Intervalo inicial de aparición en ms
+        let spawnInterval = baseSpawnInterval;
+        let lastSpawnTime = 0;
+        let gameRunning = false;
+        let animationFrameId;
+
+        let cannonX = (canvasWidth - cannonWidth) / 2;
+        const cannonY = canvasHeight - cannonHeight - cannonBaseHeight; // Posición Y ajustada para la base
+
+        // --- Funciones de Dibujo ---
+        function drawCannon() {
+            ctx.fillStyle = '#e94560'; // Rojo-rosado para el cañón
+            // Base del cañón
+            ctx.fillRect(cannonX, canvasHeight - cannonBaseHeight, cannonWidth, cannonBaseHeight);
+            // Cañón (parte que dispara)
+            ctx.fillRect(cannonX + (cannonWidth - cannonBarrelWidth) / 2, canvasHeight - cannonBaseHeight - cannonBarrelHeight, cannonBarrelWidth, cannonBarrelHeight);
+        }
+
+        function drawLetter(letter) {
+            // Dibujar el "paquete"
+            ctx.fillStyle = '#1f7a8c'; // Azul verdoso para los paquetes
+            ctx.strokeStyle = '#bbdefb'; // Borde azul claro
+            ctx.lineWidth = 2;
+            ctx.fillRect(letter.x, letter.y, letterPackageWidth, letterPackageHeight);
+            ctx.strokeRect(letter.x, letter.y, letterPackageWidth, letterPackageHeight);
+
+            // Dibujar la letra dentro del paquete
+            ctx.fillStyle = '#f0f0f0'; // Color de la letra
+            ctx.font = "24px 'Press Start 2P'"; // Usar la fuente pixelada
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(letter.char, letter.x + letterPackageWidth / 2, letter.y + letterPackageHeight / 2);
+        }
+        
+        function drawShot(targetLetter) {
+            // Animación simple de disparo: una línea desde el cañón hasta la letra
+            ctx.beginPath();
+            ctx.moveTo(cannonX + cannonWidth / 2, canvasHeight - cannonBaseHeight - cannonBarrelHeight); // Punta del cañón
+            ctx.lineTo(targetLetter.x + letterPackageWidth / 2, targetLetter.y + letterPackageHeight / 2);
+            ctx.strokeStyle = '#f5dd90'; // Amarillo para el disparo
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Pequeña "explosión"
+            ctx.fillStyle = '#ffcc00'; // Amarillo brillante
+            ctx.beginPath();
+            ctx.arc(targetLetter.x + letterPackageWidth / 2, targetLetter.y + letterPackageHeight / 2, 15, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function updateScoreAndLevel() {
+            scoreDisplay.textContent = `Puntos: ${score}`;
+            levelDisplay.textContent = `Nivel: ${level}`;
+        }
+
+        // --- Lógica del Juego ---
+        function spawnLetter() {
+            const charIndex = Math.floor(Math.random() * letterChars.length);
+            const char = letterChars[charIndex];
+            const x = Math.random() * (canvasWidth - letterPackageWidth);
+            const y = -letterPackageHeight; // Empezar justo encima del canvas
+            letters.push({ char, x, y, speed: letterSpeed });
+        }
+
+        function updateLetters() {
+            for (let i = letters.length - 1; i >= 0; i--) {
+                const letter = letters[i];
+                letter.y += letter.speed;
+
+                // Comprobar si la letra llegó al fondo
+                if (letter.y > canvasHeight) {
+                    gameOver();
+                    return; // Detener el juego
+                }
+            }
+        }
+        
+        function checkLevelUp() {
+            // Aumentar nivel cada 50 puntos * nivel actual (dificultad progresiva)
+            if (score >= level * 50) {
+                level++;
+                letterSpeed = baseLetterSpeed + (level -1) * 0.3; // Aumentar velocidad
+                spawnInterval = Math.max(500, baseSpawnInterval - (level - 1) * 150); // Reducir intervalo, mínimo 0.5s
+                updateScoreAndLevel(); // Actualizar visualización del nivel
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (!gameRunning) return;
+
+            const keyPressed = String.fromCharCode(event.keyCode).toUpperCase();
+            if (!letterChars.includes(keyPressed)) return; // Ignorar teclas no alfabéticas
+
+            // Encontrar la letra más baja (más cercana al cañón) que coincida
+            let targetLetter = null;
+            let targetLetterIndex = -1;
+
+            for (let i = 0; i < letters.length; i++) {
+                if (letters[i].char === keyPressed) {
+                    if (!targetLetter || letters[i].y > targetLetter.y) {
+                        targetLetter = letters[i];
+                        targetLetterIndex = i;
+                    }
+                }
+            }
+
+            if (targetLetter) {
+                drawShot(targetLetter); // Dibujar el disparo ANTES de quitar la letra
+                letters.splice(targetLetterIndex, 1); // Eliminar la letra
+                score += 10;
+                updateScoreAndLevel();
+                checkLevelUp();
+            }
+        }
+
+        function gameLoop(currentTime) {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight); // Limpiar canvas
+
+            // Spawn de nuevas letras
+            if (currentTime - lastSpawnTime > spawnInterval) {
+                spawnLetter();
+                lastSpawnTime = currentTime;
+            }
+
+            updateLetters(); // Mover letras y comprobar colisiones con el suelo
+
+            // Dibujar elementos
+            drawCannon();
+            letters.forEach(drawLetter);
+            
+            if (gameRunning) { // Solo continuar si el juego no ha terminado en updateLetters
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function startGame() {
+            if (gameRunning) return;
+            gameRunning = true;
+            score = 0;
+            level = 1;
+            letters = [];
+            letterSpeed = baseLetterSpeed;
+            spawnInterval = baseSpawnInterval;
+            lastSpawnTime = performance.now();
+            updateScoreAndLevel();
+            
+            gameOverBox.classList.add('hidden');
+            startButton.classList.add('hidden'); // Ocultar botón de inicio principal
+            instructionsBox.classList.add('hidden'); // Ocultar instrucciones si estaban visibles
+
+            // Reiniciar y comenzar el bucle del juego
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            cancelAnimationFrame(animationFrameId);
+            finalScoreDisplay.textContent = `Puntuación Final: ${score}`;
+            gameOverBox.classList.remove('hidden');
+            startButton.textContent = "Reiniciar Juego"; // Cambiar texto del botón principal
+            startButton.classList.remove('hidden'); // Mostrar botón de inicio/reinicio
+        }
+        
+        // --- Event Listeners ---
+        window.addEventListener('keydown', handleKeyPress);
+        
+        startButton.addEventListener('click', () => {
+            // Si el juego terminó, el botón "Iniciar Juego" ahora funciona como "Reiniciar"
+            // Si es la primera vez, simplemente inicia.
+            startGame();
+        });
+
+        restartButton.addEventListener('click', () => {
+            gameOverBox.classList.add('hidden');
+            startGame(); // Llama a la función que resetea y comienza el juego
+        });
+
+        startGameFromInstructionsButton.addEventListener('click', () => {
+            instructionsBox.classList.add('hidden');
+            startButton.classList.remove('hidden'); // Mostrar el botón de inicio principal
+            // Opcionalmente, iniciar el juego directamente:
+            // startGame();
+        });
+        
+        // Inicialización visual
+        updateScoreAndLevel();
+        drawCannon(); // Dibujar el cañón inicialmente
+        startButton.classList.add('hidden'); // Ocultar botón de inicio hasta que se cierren las instrucciones
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CazaLetras: Campo de Batalla</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #D1FAE5; /* Verde muy claro para el fondo general */
+            color: #1F2937; /* Texto oscuro por defecto */
+            margin: 0;
+            overflow: hidden;
+        }
+        .game-container {
+            background-color: rgba(255, 255, 255, 0.8); /* Fondo semi-transparente blanco para el contenedor del juego */
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border-radius: 8px;
+            display: block;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+        }
+        .controls {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 800px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-family: 'Press Start 2P', cursive;
+        }
+        .controls div {
+            background-color: #F59E0B; /* Naranja para los displays */
+            color: #FFFFFF;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .message-box { /* Para Game Over e Instrucciones */
+            position: fixed; /* Usar fixed para que esté sobre todo */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(31, 41, 55, 0.95); /* Fondo gris oscuro casi opaco */
+            color: #F3F4F6; /* Texto gris claro */
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 100; /* Encima de otros elementos */
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.2em; /* Tamaño base para mensajes */
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.6); /* Sombra naranja */
+            width: 90%;
+            max-width: 500px;
+        }
+        .message-box h2 {
+            font-size: 1.5em; /* Ajustado para mejor lectura */
+            color: #FBBF24; /* Amarillo-Naranja para títulos */
+            margin-bottom: 15px;
+        }
+        .message-box p {
+            margin-bottom: 25px;
+            font-size: 0.9em; /* Ajustado */
+        }
+        .message-box button {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #EF4444; /* Rojo para botones en mensajes */
+            color: #FFFFFF;
+            border: none;
+            padding: 15px 25px; /* Ajustado */
+            border-radius: 8px;
+            font-size: 1em; /* Ajustado */
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .message-box button:hover {
+            background-color: #DC2626; /* Rojo más oscuro */
+        }
+        .message-box button:active {
+            transform: scale(0.95);
+        }
+        .hidden {
+            display: none !important; /* Asegurar que se oculte */
+        }
+
+        /* Estilos para la pantalla de inicio prominente */
+        #startScreen {
+            font-family: 'Press Start 2P', cursive;
+            background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%); /* Fondo degradado verde */
+            text-shadow: 2px 2px 0px #388E3C; /* Sombra de texto verde oscuro */
+        }
+        #prominentStartButton {
+            background-color: #EF4444; /* Rojo brillante */
+            color: white;
+            border: 4px solid #FDE047; /* Borde amarillo */
+            box-shadow: 0 6px 0 #B91C1C, 0 8px 15px rgba(0,0,0,0.4); /* Sombra 3D roja oscura y general */
+            transition: all 0.1s ease-out;
+        }
+        #prominentStartButton:hover {
+            background-color: #F87171; /* Rojo más claro */
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 0 #B91C1C, 0 10px 20px rgba(0,0,0,0.5);
+        }
+        #prominentStartButton:active {
+            transform: translateY(2px) scale(0.98);
+            box-shadow: 0 2px 0 #B91C1C, 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="instructionsBox" class="message-box">
+        <h2>¡Bienvenida a CazaLetras!</h2>
+        <p>¡Destruye las letras que caen en paracaídas! Presiona la tecla correcta. ¡Sube de nivel y acelera tu teclado!</p>
+        <button id="startGameFromInstructionsButton">¡Entendido!</button>
+    </div>
+
+    <div id="startScreen" class="fixed inset-0 flex flex-col items-center justify-center z-50 hidden">
+        <h1 class="text-5xl sm:text-6xl font-bold mb-4 text-yellow-300">CazaLetras</h1>
+        <p class="text-lg sm:text-xl text-white mb-10">¡Prepara tu cañón!</p>
+        <button id="prominentStartButton" class="text-2xl sm:text-3xl font-bold py-4 px-8 rounded-lg">
+            Iniciar Partida
+        </button>
+    </div>
+
+    <div id="gameArea" class="hidden">
+        <div class="game-container">
+            <h1 class="text-3xl sm:text-4xl font-bold mb-6 text-center" style="font-family: 'Press Start 2P', cursive; color: #D97706;">CazaLetras</h1>
+            <div class="controls">
+                <div id="score">Puntos: 0</div>
+                <div id="level">Nivel: 1</div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </div>
+
+    <div id="gameOverBox" class="message-box hidden">
+        <h2>¡Juego Terminado!</h2>
+        <p id="finalScore">Puntuación Final: 0</p>
+        <button id="restartButton">Reiniciar Juego</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const levelDisplay = document.getElementById('level');
+        
+        const instructionsBox = document.getElementById('instructionsBox');
+        const startGameFromInstructionsButton = document.getElementById('startGameFromInstructionsButton');
+        
+        const startScreen = document.getElementById('startScreen');
+        const prominentStartButton = document.getElementById('prominentStartButton');
+        
+        const gameArea = document.getElementById('gameArea');
+        
+        const gameOverBox = document.getElementById('gameOverBox');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton');
+
+        // Configuraciones del juego
+        const canvasWidth = 800;
+        const canvasHeight = 600;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        const letterChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const letterPackageWidth = 45; // Un poco más grande para el paracaídas
+        const letterPackageHeight = 35;
+        const parachuteCanopyRadius = letterPackageWidth * 0.7;
+
+        const cannonWidth = 70;
+        const cannonHeight = 40; // Altura solo del cuerpo del cañón
+        const cannonBaseHeight = 15;
+        const cannonBarrelWidth = 18;
+        const cannonBarrelHeight = 25;
+
+        let score = 0;
+        let level = 1;
+        let letters = [];
+        let baseLetterSpeed = 0.8;
+        let letterSpeed = baseLetterSpeed;
+        let baseSpawnInterval = 2200;
+        let spawnInterval = baseSpawnInterval;
+        let lastSpawnTime = 0;
+        let gameRunning = false;
+        let animationFrameId;
+
+        const groundLevel = canvasHeight * 0.85; // El suelo comienza más abajo para dar espacio al cielo y montañas
+        let cannonX = (canvasWidth - cannonWidth) / 2;
+
+        // --- Funciones de Dibujo ---
+        function drawBackground() {
+            // Cielo
+            ctx.fillStyle = '#87CEEB'; // Azul Cielo Claro
+            ctx.fillRect(0, 0, canvasWidth, groundLevel);
+
+            // Montañas (varias capas para profundidad)
+            // Montañas lejanas (más claras)
+            ctx.fillStyle = '#A9D18E'; // Verde pálido
+            ctx.beginPath();
+            ctx.moveTo(0, groundLevel);
+            ctx.lineTo(100, groundLevel - 200);
+            ctx.lineTo(250, groundLevel - 150);
+            ctx.lineTo(400, groundLevel - 220);
+            ctx.lineTo(500, groundLevel);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#90C27A'; // Otro tono de verde pálido
+            ctx.beginPath();
+            ctx.moveTo(350, groundLevel);
+            ctx.lineTo(500, groundLevel - 250);
+            ctx.lineTo(650, groundLevel - 180);
+            ctx.lineTo(canvasWidth, groundLevel - 200);
+            ctx.lineTo(canvasWidth, groundLevel);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Montañas cercanas (más oscuras)
+            ctx.fillStyle = '#558B2F'; // Verde Oliva Oscuro
+            ctx.beginPath();
+            ctx.moveTo(50, groundLevel);
+            ctx.lineTo(200, groundLevel - 150);
+            ctx.lineTo(350, groundLevel);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#386641'; // Verde Bosque Oscuro
+            ctx.beginPath();
+            ctx.moveTo(canvasWidth - 400, groundLevel);
+            ctx.lineTo(canvasWidth - 250, groundLevel - 180);
+            ctx.lineTo(canvasWidth - 100, groundLevel - 120);
+            ctx.lineTo(canvasWidth, groundLevel);
+            ctx.closePath();
+            ctx.fill();
+
+            // Suelo
+            ctx.fillStyle = '#6B8E23'; // Verde Oliva
+            ctx.fillRect(0, groundLevel, canvasWidth, canvasHeight - groundLevel);
+        }
+
+        function drawCannon() {
+            ctx.fillStyle = '#CD5C5C'; // Rojo Indio (un poco más militar)
+            
+            const cannonActualBaseY = groundLevel - cannonBaseHeight;
+            // Base del cañón
+            ctx.fillRect(cannonX, cannonActualBaseY, cannonWidth, cannonBaseHeight);
+            // Cuerpo del cañón
+            const barrelTipX = cannonX + (cannonWidth - cannonBarrelWidth) / 2;
+            const barrelTipY = cannonActualBaseY - cannonBarrelHeight;
+            ctx.fillRect(barrelTipX, barrelTipY, cannonBarrelWidth, cannonBarrelHeight);
+
+            // Detalles del cañón (ruedas simuladas)
+            ctx.fillStyle = '#696969'; // Gris Oscuro
+            ctx.beginPath();
+            ctx.arc(cannonX + cannonWidth * 0.2, groundLevel - cannonBaseHeight/2, cannonBaseHeight * 0.8, 0, Math.PI * 2);
+            ctx.arc(cannonX + cannonWidth * 0.8, groundLevel - cannonBaseHeight/2, cannonBaseHeight * 0.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawLetter(letter) {
+            const parachuteColor = '#F5F5DC'; // Beige para el paracaídas
+            const stringColor = '#8B4513'; // Marrón Silla de Montar
+            const packageColor = '#A0522D'; // Siena (paquete)
+            const packageBorderColor = '#D2B48C'; // Canela (borde paquete)
+
+            // Posición Y del paquete, debajo del paracaídas
+            const packageTopY = letter.y + parachuteCanopyRadius + 5; 
+
+            // Dibujar Paracaídas
+            ctx.beginPath();
+            ctx.arc(letter.x + letterPackageWidth / 2, letter.y + parachuteCanopyRadius, parachuteCanopyRadius, Math.PI, 0);
+            ctx.fillStyle = parachuteColor;
+            ctx.fill();
+            ctx.strokeStyle = stringColor; // Borde para el paracaídas
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+
+            // Cuerdas del Paracaídas
+            const stringTopX1 = letter.x + letterPackageWidth / 2 - parachuteCanopyRadius * 0.5;
+            const stringTopX2 = letter.x + letterPackageWidth / 2 + parachuteCanopyRadius * 0.5;
+            const stringAttachY = letter.y + parachuteCanopyRadius; // Donde las cuerdas se unen al paracaídas
+
+            ctx.beginPath();
+            ctx.moveTo(stringTopX1, stringAttachY);
+            ctx.lineTo(letter.x + letterPackageWidth * 0.25, packageTopY + 5); // Un poco dentro del paquete
+            ctx.moveTo(stringTopX2, stringAttachY);
+            ctx.lineTo(letter.x + letterPackageWidth * 0.75, packageTopY + 5);
+            ctx.strokeStyle = stringColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Paquete de la Letra
+            ctx.fillStyle = packageColor;
+            ctx.strokeStyle = packageBorderColor;
+            ctx.lineWidth = 2;
+            ctx.fillRect(letter.x, packageTopY, letterPackageWidth, letterPackageHeight);
+            ctx.strokeRect(letter.x, packageTopY, letterPackageWidth, letterPackageHeight);
+
+            // Letra dentro del paquete
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = "bold 20px 'Press Start 2P'";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(letter.char, letter.x + letterPackageWidth / 2, packageTopY + letterPackageHeight / 2);
+
+            letter.packageBottomY = packageTopY + letterPackageHeight;
+            letter.packageCenterX = letter.x + letterPackageWidth / 2;
+            letter.packageCenterY = packageTopY + letterPackageHeight / 2;
+        }
+        
+        function drawShot(targetLetter) {
+            ctx.beginPath();
+            // Origen del disparo: punta del cañón
+            const cannonBarrelTipY = groundLevel - cannonBaseHeight - cannonBarrelHeight;
+            ctx.moveTo(cannonX + cannonWidth / 2, cannonBarrelTipY);
+            // Destino: centro del paquete de la letra
+            ctx.lineTo(targetLetter.packageCenterX, targetLetter.packageCenterY);
+            ctx.strokeStyle = '#FFEB3B'; // Amarillo brillante para el disparo
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Explosión
+            ctx.fillStyle = '#FFA500'; // Naranja para la explosión
+            ctx.beginPath();
+            ctx.arc(targetLetter.packageCenterX, targetLetter.packageCenterY, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFD700'; // Dorado más pequeño en el centro
+            ctx.beginPath();
+            ctx.arc(targetLetter.packageCenterX, targetLetter.packageCenterY, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function updateScoreAndLevel() {
+            scoreDisplay.textContent = `Puntos: ${score}`;
+            levelDisplay.textContent = `Nivel: ${level}`;
+        }
+
+        // --- Lógica del Juego ---
+        function spawnLetter() {
+            const charIndex = Math.floor(Math.random() * letterChars.length);
+            const char = letterChars[charIndex];
+            const x = Math.random() * (canvasWidth - letterPackageWidth);
+            // 'y' es la parte superior del paracaídas. El paquete está debajo.
+            const y = - (parachuteCanopyRadius * 2); // Empezar justo encima, considerando altura del paracaídas
+            letters.push({ char, x, y, speed: letterSpeed });
+        }
+
+        function updateLetters() {
+            for (let i = letters.length - 1; i >= 0; i--) {
+                const letter = letters[i];
+                letter.y += letter.speed;
+
+                // Re-calcular packageBottomY porque 'y' cambia
+                const packageTopY = letter.y + parachuteCanopyRadius + 5;
+                letter.packageBottomY = packageTopY + letterPackageHeight;
+
+
+                if (letter.packageBottomY > groundLevel) {
+                    gameOver();
+                    return; 
+                }
+            }
+        }
+        
+        function checkLevelUp() {
+            if (score >= level * 50 + (level-1)*25) { // Dificultad un poco más escalada
+                level++;
+                letterSpeed = baseLetterSpeed + (level -1) * 0.25;
+                spawnInterval = Math.max(400, baseSpawnInterval - (level - 1) * 120);
+                updateScoreAndLevel();
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (!gameRunning) return;
+
+            const keyPressed = String.fromCharCode(event.keyCode).toUpperCase();
+            if (!letterChars.includes(keyPressed)) return;
+
+            let targetLetter = null;
+            let targetLetterIndex = -1;
+
+            // Priorizar la letra cuyo *paquete* esté más abajo
+            for (let i = 0; i < letters.length; i++) {
+                if (letters[i].char === keyPressed) {
+                    // Calcular la posición Y del paquete para la comparación
+                    const currentPackageTopY = letters[i].y + parachuteCanopyRadius + 5;
+                    const currentPackageBottomY = currentPackageTopY + letterPackageHeight;
+
+                    if (!targetLetter || currentPackageBottomY > (targetLetter.y + parachuteCanopyRadius + 5 + letterPackageHeight)) {
+                        targetLetter = letters[i];
+                        targetLetterIndex = i;
+                    }
+                }
+            }
+
+            if (targetLetter) {
+                // Actualizar coordenadas del centro del paquete antes de dibujar el disparo
+                const packageTopY = targetLetter.y + parachuteCanopyRadius + 5;
+                targetLetter.packageCenterX = targetLetter.x + letterPackageWidth / 2;
+                targetLetter.packageCenterY = packageTopY + letterPackageHeight / 2;
+
+                drawShot(targetLetter); 
+                letters.splice(targetLetterIndex, 1);
+                score += 10;
+                updateScoreAndLevel();
+                checkLevelUp();
+            }
+        }
+
+        function gameLoop(currentTime) {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            drawBackground(); // Dibujar el nuevo fondo primero
+
+            if (currentTime - lastSpawnTime > spawnInterval) {
+                spawnLetter();
+                lastSpawnTime = currentTime;
+            }
+
+            updateLetters(); 
+
+            drawCannon();
+            letters.forEach(drawLetter); // Asegurarse que letter.packageBottomY se actualiza aquí
+            
+            if (gameRunning) {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            level = 1;
+            letters = [];
+            letterSpeed = baseLetterSpeed;
+            spawnInterval = baseSpawnInterval;
+            lastSpawnTime = performance.now();
+            updateScoreAndLevel();
+            
+            startScreen.classList.add('hidden');
+            gameOverBox.classList.add('hidden');
+            gameArea.classList.remove('hidden'); // Mostrar el área de juego
+
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            cancelAnimationFrame(animationFrameId);
+            finalScoreDisplay.textContent = `Puntuación Final: ${score}`;
+            gameOverBox.classList.remove('hidden');
+            // No necesitamos mostrar startScreen aquí, el botón de restart en gameOverBox es suficiente
+        }
+        
+        // --- Event Listeners ---
+        window.addEventListener('keydown', handleKeyPress);
+        
+        startGameFromInstructionsButton.addEventListener('click', () => {
+            instructionsBox.classList.add('hidden');
+            startScreen.classList.remove('hidden'); // Mostrar la pantalla de inicio prominente
+        });
+
+        prominentStartButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame); // Reutiliza startGame para reiniciar
+        
+        // Estado Inicial de la UI
+        function initializeUI() {
+            instructionsBox.classList.remove('hidden');
+            startScreen.classList.add('hidden');
+            gameArea.classList.add('hidden');
+            gameOverBox.classList.add('hidden');
+            
+            // Dibujar un estado inicial del canvas (fondo y cañón) si se desea antes de que empiece el juego
+            // o dejarlo para cuando se muestre gameArea. Por ahora, se dibuja al iniciar.
+            ctx.clearRect(0,0,canvasWidth, canvasHeight);
+            drawBackground();
+            drawCannon();
+            updateScoreAndLevel(); // Para que se vean los 0s iniciales si gameArea estuviera visible
+        }
+        
+        initializeUI();
+
+    </script>
+</body>
+</html>
